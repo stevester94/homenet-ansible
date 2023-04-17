@@ -1,0 +1,16 @@
+sudo dnf install epel-release
+sudo dnf install mock
+sudo dnf install --allowerasing pulseaudio
+sudo usermod -a -G mock $USER
+exec su -l $USER
+mkdir xrdp-tmp
+cd xrdp-tmp
+dnf download --source pulseaudio sbc libatomic_ops webrtc-audio-processing
+mock --chain ./sbc-*.src.rpm ./libatomic_ops-*.src.rpm ./webrtc-audio-processing-*.src.rpm ./pulseaudio-*.src.rpm
+PULSE_DIR=$(find /var/lib/mock -type d -name pulseaudio-\* 2>/dev/null | grep -v BUILDROOT)
+sudo dnf install autoconf automake make libtool libtool-ltdl-devel pulseaudio-libs-devel git
+git clone https://github.com/neutrinolabs/pulseaudio-module-xrdp.git
+cd pulseaudio-module-xrdp
+./bootstrap && ./configure PULSE_DIR=$PULSE_DIR
+make
+sudo make install

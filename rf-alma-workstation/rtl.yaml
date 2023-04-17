@@ -1,0 +1,26 @@
+---
+- name: Install RTL support stuff on Alma 9
+  hosts: all
+  become: true
+
+  tasks:
+  - name: Install epel
+    dnf:
+      name: epel-release
+      state: present
+
+  - name: Install rtl-sdr
+    dnf:
+      name: rtl-sdr-devel.x86_64
+      state: present
+      update_cache: true
+
+  - name: Add steven to docker group
+    user:
+      name: steven
+      groups: rtlsdr
+      append: yes
+
+  - name: Unconditionally reboot the machine with all defaults
+    become: yes
+    ansible.builtin.reboot:

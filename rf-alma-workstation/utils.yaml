@@ -1,0 +1,18 @@
+---
+- hosts: all
+  tasks:
+  - name: Install a list of packages
+    become: yes
+    ansible.builtin.dnf:
+      name: "{{ item }}"
+      state: present
+    with_items:
+      - vim
+      - tmux
+      - git
+      - "@Development Tools"
+
+  - name: Git checkout dotfiles repo
+    ansible.builtin.git:
+      repo: 'https://github.com/stevester94/dotfiles.git'
+      dest: /home/steven/dotfiles

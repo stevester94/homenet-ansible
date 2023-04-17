@@ -1,40 +1,157 @@
 ---
 - hosts: all
-  become: yes
   tasks:
-  - name: disable wayland in gnome (superfluous?)
+  - name: disable wayland in gnome
+    become: yes
     lineinfile:
       path: /etc/gdm/custom.conf
       regexp: '#WaylandEnable=false'
       line: 'WaylandEnable=false'
       backup: yes
 
-  - name: Install a list of packages
+  - name: Install epel
     become: yes
     ansible.builtin.dnf:
-      name: "{{ item }}"
+      name: "epel-release"
       state: present
-    with_items:
-      - "epel-release"
-      - "@base-x"
-      - "@Xfce"
-      - xrdp
-      - mock
+      update_cache: true
+
+  - name: Install supporting packages
+    become: yes
+    ansible.builtin.dnf:
+      name:
+        - "@base-x"
+        # - "@Xfce"
+        - xrdp
+        - mock
+        - autoconf 
+        - automake 
+        - make 
+        - libtool 
+        - libtool-ltdl-devel 
+        - pulseaudio-libs-devel 
+        - git
+      state: present
+      update_cache: true
+      enablerepo: crb
 
   - name: Add steven to mock group
+    become: yes
     user:
       name: steven
       groups: mock
       append: yes
 
   - name: Enable and start xrdp service
+    become: yes
     service:
       name: xrdp
       state: started
       enabled: yes
 
   - name: permit xrdp traffic
+    become: yes
     ansible.posix.firewalld:
       port: 3389/tcp
       permanent: true
       state: enabled
+
+####################
+# Begin build step #
+####################
+  - name: Build xrdp pulseaudio module
+    args:
+      creates: /smack-xrdp-sentinel.build
+    ansible.builtin.shell: |
+      #! /bin/bash
+      cd ~
+      mkdir -p xrdp-tmp
+      cd xrdp-tmp
+      dnf download --enablerepo crb --source pulseaudio sbc libatomic_ops webrtc-audio-processing
+      mock --chain ./sbc-*.src.rpm ./libatomic_ops-*.src.rpm ./webrtc-audio-processing-*.src.rpm ./pulseaudio-*.src.rpm
+      export PULSE_DIR=$(find /var/lib/mock -type d -name pulseaudio-\* 2>/dev/null | grep -v BUILDROOT)
+      git clone https://github.com/neutrinolabs/pulseaudio-module-xrdp.git
+      cd pulseaudio-module-xrdp
+      ./bootstrap && ./configure PULSE_DIR=$PULSE_DIR
+      make
+
+  - name: Create build sentinel
+    become: yes
+    copy:
+      dest: /smack-xrdp-sentinel.build
+      content: we've built
+
+  - name: Install xrdp pulseaudio module
+    become: yes
+    args:
+      creates: /smack-xrdp-sentinel.install
+    ansible.builtin.shell: |
+      #! /bin/bash
+      cd /home/steven/xrdp-tmp/pulseaudio-module-xrdp
+      make install
+
+  - name: Create install sentinel
+    become: yes
+    copy:
+      dest: /smack-xrdp-sentinel.install
+      content: we've installed
+
+####################
+# end build step #
+####################
+
+  - name: Overwrite whatever the hell sound provider alma 9 ships with
+    become: yes
+    dnf:
+      name: pulseaudio
+      state: present
+      allow_downgrade: yes
+      allowerasing: yes
+
+
+  - name: Spruce up pulseaudio
+    become: yes
+    lineinfile:
+      path: /etc/pulse/daemon.conf
+      regexp: '; realtime-scheduling ='
+      line: '; realtime-scheduling = no'
+      backup: yes
+  - name: Spruce up pulseaudio
+    become: yes
+    lineinfile:
+      path: /etc/pulse/daemon.conf
+      regexp: '; high-priority = '
+      line: '; high-priority = yes'
+      backup: yes
+  - name: Spruce up pulseaudio
+    become: yes
+    lineinfile:
+      path: /etc/pulse/daemon.conf
+      regexp: '; nice-level ='
+      line: '; nice-level = -15'
+      backup: yes
+  - name: Spruce up pulseaudio
+    become: yes
+    lineinfile:
+      path: /etc/pulse/daemon.conf
+      regexp: '; default-fragments = '
+      line: '; default-fragments = 8'
+      backup: yes
+  - name: Spruce up pulseaudio
+    become: yes
+    lineinfile:
+      path: /etc/pulse/daemon.conf
+      regexp: '; default-fragment-size-msec = '
+      line: '; default-fragment-size-msec = 10'
+      backup: yes
+
+  - name: Enable pulseaudio for current suer (idk why pulseaudio isn't a system level service)
+    systemd:
+      name: "pulseaudio.service"
+      enabled: yes
+      state: started
+      scope: user
+
+  - name: Unconditionally reboot the machine with all defaults
+    become: yes
+    ansible.builtin.reboot:

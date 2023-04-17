@@ -1,0 +1,58 @@
+---
+- name: install Google Chrome
+  hosts: all
+  become: true
+  tasks:
+    - name: Add Yum signing key
+      ansible.builtin.rpm_key:
+        key: https://dl.google.com/linux/linux_signing_key.pub
+        state: present
+
+    - name: Add repository into repo.d list
+      ansible.builtin.yum_repository:
+        name: google-chrome
+        description: google-chrome repository
+        baseurl: http://dl.google.com/linux/chrome/rpm/stable/x86_64
+        enabled: true
+        gpgcheck: true
+        gpgkey: https://dl.google.com/linux/linux_signing_key.pub
+
+    - name: Install google-chrome-stable
+      ansible.builtin.yum:
+        name: "google-chrome-stable"
+        state: latest 
+        update_cache: true
+
+- name: Install Visual Studio Code
+  hosts: all
+  become: true
+  tasks:
+    - name: Add Microsoft GPG key
+      shell: rpm --import https://packages.microsoft.com/keys/microsoft.asc
+
+    - name: Add Visual Studio Code repository
+      shell: dnf config-manager --add-repo https://packages.microsoft.com/yumrepos/vscode
+      args:
+        creates: /etc/yum.repos.d/vscode.repo
+
+    - name: Install Visual Studio Code package
+      package:
+        name: code
+        state: present
+
+
+- name: Install Obsidian.md
+  hosts: all
+  become: true
+  tasks:
+    - name: Download Obsidian.md AppImage
+      get_url:
+        url: https://github.com/obsidianmd/obsidian-releases/releases/download/v1.1.16/Obsidian-1.1.16.AppImage
+        dest: /usr/bin/obsidian
+
+    - name: Change file ownership, group and permissions
+      ansible.builtin.file:
+        path: /usr/bin/obsidian
+        owner: root
+        group: root
+        mode: '0777'

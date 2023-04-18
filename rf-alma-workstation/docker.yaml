@@ -31,6 +31,8 @@
     with_items:
       - podman
       - buildah
+      - "@Container Management"
+      - runc
 
   - name: Install Docker
     dnf:

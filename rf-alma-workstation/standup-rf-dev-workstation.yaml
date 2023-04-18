@@ -1,0 +1,6 @@
+---
+- import_playbook: docker.yaml
+- import_playbook: dev-env.yaml
+- import_playbook: rtl.yaml
+- import_playbook: utils.yaml
+- import_playbook: xrdp.yaml

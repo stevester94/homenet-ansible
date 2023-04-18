@@ -29,11 +29,12 @@
         - make 
         - libtool 
         - libtool-ltdl-devel 
+        - "@Development Tools"
         - pulseaudio-libs-devel 
         - git
       state: present
       update_cache: true
-      enablerepo: crb
+      enablerepo: powertools
 
   - name: Add steven to mock group
     become: yes
@@ -67,7 +68,7 @@
       cd ~
       mkdir -p xrdp-tmp
       cd xrdp-tmp
-      dnf download --enablerepo crb --source pulseaudio sbc libatomic_ops webrtc-audio-processing
+      dnf download --enablerepo powertools --source pulseaudio sbc libatomic_ops webrtc-audio-processing
       mock --chain ./sbc-*.src.rpm ./libatomic_ops-*.src.rpm ./webrtc-audio-processing-*.src.rpm ./pulseaudio-*.src.rpm
       export PULSE_DIR=$(find /var/lib/mock -type d -name pulseaudio-\* 2>/dev/null | grep -v BUILDROOT)
       git clone https://github.com/neutrinolabs/pulseaudio-module-xrdp.git
@@ -99,16 +100,6 @@
 ####################
 # end build step #
 ####################
-
-  - name: Overwrite whatever the hell sound provider alma 9 ships with
-    become: yes
-    dnf:
-      name: pulseaudio
-      state: present
-      allow_downgrade: yes
-      allowerasing: yes
-
-
   - name: Spruce up pulseaudio
     become: yes
     lineinfile:
@@ -144,13 +135,6 @@
       regexp: '; default-fragment-size-msec = '
       line: '; default-fragment-size-msec = 10'
       backup: yes
-
-  - name: Enable pulseaudio for current suer (idk why pulseaudio isn't a system level service)
-    systemd:
-      name: "pulseaudio.service"
-      enabled: yes
-      state: started
-      scope: user
 
   - name: Unconditionally reboot the machine with all defaults
     become: yes
